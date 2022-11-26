@@ -1,0 +1,51 @@
+---
+- name: "docker playbook"
+  hosts: "amazon"
+  become: true
+  vars_files:
+    - variable.yml
+  tasks:
+    - name: "package install"
+      yum:
+        name: "{{ packages }}"
+        state: present
+    - name: "docker install"
+      command: "pip install docker-py"
+    - name: "restaring service"
+      service:
+        name: docker
+        state: restarted
+        enabled: true
+    - name: "docker image"
+      docker_image:
+        name: httpd
+        tag: alpine
+        source: pull
+    - name: "create a perminat volume"
+      file:
+        path: "/var/test"
+        state: directory
+    - name: "voulme create"
+      copy:
+        src: ./website
+        dest: /var/
+    - name: "container create"
+      docker_container:
+        name: httpd
+        image: "httpd:alpine"
+        published_ports:
+          - "8080:80"
+        volumes: /var/website/:/usr/local/apache2/htdocs/
+        
+        --------
+# cat variable.yml
+---
+packages:
+  - python-pip
+  - docker
+  
+ result
+ ----------
+ CONTAINER ID   IMAGE          COMMAND              CREATED         STATUS         PORTS                  NAMES
+391737aa6f39   httpd:alpine   "httpd-foreground"   4 minutes ago   Up 4 minutes   0.0.0.0:8080->80/tcp   httpd
+[ec2-user@ip-172-31-14-131 ~]$
