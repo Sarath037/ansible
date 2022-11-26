@@ -1,0 +1,27 @@
+ cat nginx.yml
+---
+- name: "nginx website"
+  hosts: "ubuntu"
+  become: true
+  vars:
+    packages: nginx
+    nginx_owner: www-data
+    nginx_group: www-data
+  tasks:
+
+    - name: "nginx install"
+      apt:
+        name: "{{ packages }}"
+        state: present
+        update_cache: true
+    - name: "restaring nginx"
+      service:
+        name: nginx
+        state: restarted
+        enabled: true
+    - name: "website copying"
+      copy:
+        src: ./website/
+        dest: /var/www/html/
+        owner: "{{ nginx_owner}}"
+        group: "{{ nginx_group }}"
