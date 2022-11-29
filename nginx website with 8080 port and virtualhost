@@ -1,0 +1,134 @@
+$ cat site.conf
+server {
+
+        listen {{ nginx_port }};
+        server_name {{ nginx_domain }};
+          root /var/www/html/{{ nginx_domain }};
+                  index index.html index.htm;
+
+        location / {
+
+                try_files $uri $uri/ =404;
+        }
+
+}
+[ec2-user@ip-172-31-8-173 ~]$
+
+=================================
+
+$ cat tempale-nginx.yml
+---
+- name: "nginx port handling"
+  hosts: ubuntu
+  become: true
+  vars:
+    nginx_port: 8080
+    nginx_domain: "sarath.quest"
+    owner: www-data
+    group: www-data
+  tasks:
+    - name: "installing nginx"
+      apt:
+        name: nginx
+        state: present
+        update_cache: true
+    - name: "configuration file change"
+      template:
+        src: default.tmpl
+        dest: /etc/nginx/sites-available/default
+    - name: "creating virtualhost file from template"
+      template:
+        src: site.conf
+        dest: "/etc/nginx/sites-available/{{ nginx_domain }}.conf"
+        owner: "{{ owner }}"
+        group: "{{ group }}"
+    - name: "create document root"
+      file:
+        path: /var/www/html/{{ nginx_domain }}
+        state: directory
+        owner: "{{ owner }}"
+        group: "{{ group }}"
+    - name: "apply symlinks"
+      file:
+        src: /etc/nginx/sites-available/{{ nginx_domain }}.conf
+        dest: /etc/nginx/sites-enabled/{{ nginx_domain }}.conf
+        state: link
+    - name: "website copy"
+      copy:
+         content: "<h1><center> This is a test site </center></h1>"
+         dest: /var/www/html/{{ nginx_domain }}/index.html
+         owner: "{{ owner }}"
+         group: "{{ group }}"
+    - name: "Restart/enable nginx"
+      service:
+        name: nginx
+        state: restarted
+        enabled: true
+=================================================
+
+output
+-------
+
+ ansible-playbook -i hosts tempale-nginx.yml
+
+PLAY [nginx port handling] ***********************************************************************************************
+
+TASK [Gathering Facts] ***************************************************************************************************
+ok: [172.31.8.163]
+
+TASK [installing nginx] **************************************************************************************************
+ok: [172.31.8.163]
+
+TASK [configuration file change] *****************************************************************************************
+changed: [172.31.8.163]
+
+TASK [creating virtualhost file from template] ***************************************************************************
+ok: [172.31.8.163]
+
+TASK [create document root] **********************************************************************************************
+ok: [172.31.8.163]
+
+TASK [apply symlinks] ****************************************************************************************************
+ok: [172.31.8.163]
+
+TASK [website copy] ******************************************************************************************************
+ok: [172.31.8.163]
+
+TASK [Restart/enable nginx] **********************************************************************************************
+fatal: [172.31.8.163]: FAILED! => {"changed": false, "msg": "Unable to restart service nginx: Job for nginx.service failed because the control process exited with error code.\nSee \"systemctl status nginx.service\" and \"journalctl -xeu nginx.service\" for details.\n"}
+
+PLAY RECAP ***************************************************************************************************************
+172.31.8.163               : ok=7    changed=1    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0
+
+[ec2-user@ip-172-31-8-173 ~]$ vi default.tmpl
+[ec2-user@ip-172-31-8-173 ~]$
+[ec2-user@ip-172-31-8-173 ~]$ ansible-playbook -i hosts tempale-nginx.yml
+
+PLAY [nginx port handling] ***********************************************************************************************
+
+TASK [Gathering Facts] ***************************************************************************************************
+ok: [172.31.8.163]
+
+TASK [installing nginx] **************************************************************************************************
+ok: [172.31.8.163]
+
+TASK [configuration file change] *****************************************************************************************
+changed: [172.31.8.163]
+
+TASK [creating virtualhost file from template] ***************************************************************************
+ok: [172.31.8.163]
+
+TASK [create document root] **********************************************************************************************
+ok: [172.31.8.163]
+
+TASK [apply symlinks] ****************************************************************************************************
+ok: [172.31.8.163]
+
+TASK [website copy] ******************************************************************************************************
+ok: [172.31.8.163]
+
+TASK [Restart/enable nginx] **********************************************************************************************
+changed: [172.31.8.163]
+
+PLAY RECAP ***************************************************************************************************************
+172.31.8.163               : ok=8    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
