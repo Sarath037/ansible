@@ -1,0 +1,141 @@
+[ec2-user@ip-172-31-37-105 ~]$ cat wordpress.yml
+---
+- name: "Wordpress Installation"
+  hosts: "amazon"
+  become: true
+  vars_files:
+    - main.var
+  tasks:
+    - name: "Lamp - Installing Apache and mariadb server"
+      yum:
+        name: "{{ packages }}"
+        state: present
+    - name: "installing php packages"
+      shell: "amazon-linux-extras install php7.4 -y"
+    - name: "Lamp - Creating httpd.conf from template"
+      template:
+        src: httpd.conf.tmpl
+        dest: /etc/httpd/conf/httpd.conf
+        owner: "{{ httpd_owner }}"
+        group: "{{ httpd_group }}"
+    - name: "Virtualhost Configuration File {{ httpd_domain }}"
+      template:
+        src: virtualhost.yml
+        dest: /etc/httpd/conf.d/default.conf
+        owner: "{{ httpd_owner }}"
+        group: "{{ httpd_group }}"
+
+    - name: "Lamp - Creating Documentroot {{ httpd_domain }}"
+      file:
+        path: "/var/www/html/{{ httpd_domain }}"
+        state: directory
+        owner: "{{ httpd_owner }}"
+        group: "{{ httpd_group }}"
+    - name: "copying test page"
+      copy:
+        src: "{{ item }}"
+        dest: /var/www/html/{{ httpd_domain }}
+        owner: "{{ httpd_owner }}"
+        group: "{{ httpd_group }}"
+      with_items:
+          - test.php
+          - test.html
+    - name: "restarting httpd and php-fpm"
+      service:
+        name: "{{ item }}"
+        state: restarted
+        enabled: true
+      with_items:
+        - "httpd"
+        - "php-fpm"
+    - name: "Restart/enable mariadb"
+      service:
+        name: mariadb
+        state: restarted
+        enabled: true
+    - name: "setting root password"
+      mysql_user:
+        user: "{{ mysql_user }}"
+        password: "{{ mysql_root_passwd }}"
+        host: "%"
+    - name: "fetch root password"
+      template:
+        src: my.cnf.tml
+        dest: /root/.my.cnf
+        owner: root
+        group: root
+    - name: "removing anonymous users"
+      mysql_user:
+        user: ""
+        host_all: true
+        state: absent
+    - name: "create data base"
+      mysql_db:
+        name: "{{ mysql_extra_database }}"
+        state: present
+    - name: "removing test database"
+      mysql_db:
+        name: test
+        state: absent
+    - name: "create extra user"
+      mysql_user:
+        user: "{{ mysql_extra_usr }}"
+        password: "{{ mysql_extra_usr_passwd }}"
+        priv: '{{ mysql_extra_database }}.*:ALL'
+        host: "%"
+        state: present
+    - name: "Downloading wordpress url"
+      get_url:
+        url: "{{ wp_url }}"
+        dest: /tmp/latest.zip
+    - name: "extracting"
+      unarchive:
+        src: /tmp/latest.zip
+        dest: /tmp/
+        remote_src: true
+    - name: "copying files to document root"
+      copy:
+        src: /tmp/wordpress/
+        dest: /var/www/html/{{ httpd_domain }}
+        owner: "{{ httpd_owner }}"
+        group: "{{ httpd_group }}"
+        remote_src: true
+    - name: "create wp-config"
+      template:
+        src: wp-conf.yml
+        dest: /var/www/html/{{ httpd_domain }}/wp-config.php
+        owner: "{{ httpd_owner }}"
+        group: "{{ httpd_group }}"
+    - name: "post installation restart"
+      service:
+        name: "{{ item }}"
+        state: restarted
+        enabled: true
+      with_items:
+        - "mariadb"
+        - "httpd"
+        - "php-fpm"
+    - name: "post installation cleanup"
+      file:
+        path: "{{ item }}"
+        dest: /tmp/
+      with_items:
+        - "/tmp/wordpress/"
+        - "/tmp/latest.zip"
+
+[ec2-user@ip-172-31-37-105 ~]$ cat main.var
+---
+httpd_port: 80
+httpd_domain: "wordpress.sarath.quest"
+httpd_owner: "apache"
+httpd_group: "apache"
+packages:
+  - httpd
+  - mariadb-server
+  - MySQL-python
+mysql_root_passwd: "mysql@123"
+mysql_extra_usr: "sarath"
+mysql_extra_usr_passwd: "sarath@123"
+mysql_user: "root"
+mysql_extra_database: "saradb"
+wp_url: "https://wordpress.org/latest.zip"
