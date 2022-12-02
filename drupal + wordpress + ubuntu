@@ -269,3 +269,7 @@ drupal_url: "https://www.drupal.org/download-latest/tar.gz"
         - "/tmp/tar.gz"
       tags:
         - drupal
+        
+  ===============
+  
+  ansible-playbook -i hosts wordpress-ubuntu.yml --tag=drupal
