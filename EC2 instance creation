@@ -1,0 +1,90 @@
+ cat variable.yml
+---
+type: "t2.micro"
+key: "key"
+accesskey: "D2AKIAZLV"
+secretkey: "fWkq/IollUyx1CPInFsNyFEAE"
+ami_id: "ami-074dc0a6f6c764218"
+aws_sg:
+  - "default"
+region: "ap-south-1"
+instance_tags:
+  Name: "ansible_client"
+  project: "zomato"
+  Env: "dev"
+packages: httpd
+httpd_owner: apache
+httpd_group: apache
+[ec2-user@ip-172-31-42-90 ~]$ cat instance.yml
+---
+- name: "creation of ec2 instance"
+  hosts: "localhost"
+  vars_files:
+    - variable.yml
+  tasks:
+    - name: "creating ec2 instance"
+      amazon.aws.ec2_instance:
+        name: "ansible_cient"
+        aws_access_key: "{{ accesskey }}"
+        aws_secret_key: "{{ secretkey }}"
+        image_id: "{{ ami_id }}"
+        instance_type: "{{ type }}"
+        key_name: "{{ key }}"
+        security_groups: "{{ aws_sg }}"
+        region: "{{ region }}"
+        tags: "{{ instance_tags }}"
+        exact_count: 2
+        filters:
+          "tag:Name" : "ansible_cient"
+          "instance-state-name" : "running"
+    - name: "Fetching ec2 instance values"
+      amazon.aws.ec2_instance_info:
+        aws_access_key: "{{ accesskey }}"
+        aws_secret_key: "{{ secretkey }}"
+        region: "{{ region }}"
+        filters:
+          "tag:Name" : "ansible_cient"
+          "instance-state-name" : [ "running" ]
+      register: ec2
+    - debug:
+        msg: "instance id: {{ item.instance_id }} ip address: {{ item.public_ip_address }}"
+      with_items: "{{ ec2.instances }}"
+    - name: "dynamic inventory creation"
+      add_host:
+        hostname: "{{ item.public_ip_address }}"
+        ansible_ssh_port: 22
+        ansible_ssh_user: "ec2-user"
+        ansible_ssh_host: "{{ item.public_ip_address }}"
+        groups:
+          amazon
+        ansible_ssh_private_key_file: "test.pem"
+        ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+      with_items: "{{ ec2.instances }}"
+
+- name: "website creation"
+  hosts: "amazon"
+  become: true
+  vars_files:
+    - variable.yml
+  tasks:
+    - name: "httpd install"
+      yum:
+        name: "{{ packages }}"
+        state: present
+    - name: "restaring httpd"
+      service:
+        name: httpd
+        state: restarted
+        enabled: true
+    - name: "website copying"
+      copy:
+        src: ./website/
+        dest: /var/www/html/
+        owner: "{{ httpd_owner}}"
+        group: "{{ httpd_group }}"
+
+
+
+
+
+[ec2-user@ip-172-31-42-90 ~]$
