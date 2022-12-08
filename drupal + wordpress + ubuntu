@@ -273,3 +273,21 @@ drupal_url: "https://www.drupal.org/download-latest/tar.gz"
   ===============
   
   ansible-playbook -i hosts wordpress-ubuntu.yml --tag=drupal
+  
+  
+   cat templates/virtualhost.yml
+<virtualhost *:{{ httpd_port }}>
+
+  servername {{ httpd_domain }}
+  documentroot /var/www/html/{{ httpd_domain }}
+  directoryindex index.html index.php test.php test.html
+
+</virtualhost>
+[root@ip-172-31-5-202 lamp]# cat templates/virtualhost-dru.yml
+<virtualhost *:{{ httpd_port }}>
+
+  servername {{ drupal_domain }}
+  documentroot /var/www/html/{{ drupal_domain }}
+  directoryindex index.html index.php test.php test.html
+
+</virtualhost>
